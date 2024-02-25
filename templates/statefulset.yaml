@@ -1,0 +1,117 @@
+{{- if .Values.statefulset }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-service-{{ .Values.statefulset.name }}
+  labels:
+    app: {{ .Values.statefulset.name }}
+spec:
+  ports:
+  {{- range $key, $value := .Values.statefulset.containers }}
+  {{- range $key2, $value2 := $value.ports }}
+    - port: {{ $value2.containerPort }}
+      targetPort: {{ $value2.containerPort }}
+  {{- end }}
+  {{- end }}
+  clusterIP: None
+  selector:
+    app: {{ .Values.statefulset.name }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-set-{{ .Values.statefulset.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.statefulset.name }}
+  serviceName: headless-service-{{ .Values.statefulset.name }}
+  replicas: {{ .Values.statefulset.spec.replicas }}
+  minReadySeconds: {{ .Values.statefulset.spec.minReadySeconds }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.statefulset.name }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.statefulset.templateSpec.terminationGracePeriodSeconds }}
+      podManagementPolicy: {{ .Values.statefulset.templateSpec.podManagementPolicy }}
+      {{- if .Values.statefulset.templateSpec.podAntiAffinity }}
+      affinity:
+        podAntiAffinity:
+          {{- range $index, $value := .Values.statefulset.templateSpec.podAntiAffinity }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ $value.weight }}
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                  {{- range $index, $value2 := $value.matchExpressions }}
+                    - key: {{ $value2.key }}
+                      operator: {{ $value2.operator }}
+                      values:
+                        {{- toYaml $value2.values | nindent 24 }}
+                  {{- end }}
+                topologyKey: {{ $value.topologyKey }}
+          {{- end }}
+      {{- end }}
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          partitions: 1
+      {{- if .Values.statefulset.templateSpec.livenessProbe }}
+      livenessProbe:
+        httpGet:
+          path: {{ .Values.statefulset.templateSpec.livenessProbe.path }}
+          port: {{ .Values.statefulset.templateSpec.livenessProbe.port }}
+        initialDelaySeconds: {{ .Values.statefulset.templateSpec.livenessProbe.initialDelaySeconds }}
+        periodSecond: {{ .Values.statefulset.templateSpec.livenessProbe.periodSeconds }}
+        failureThreshold: {{ .Values.statefulset.templateSpec.livenessProbe.failureThreshold }}
+      {{- end }}
+      {{- if .Values.statefulset.templateSpec.readinessProbe }}
+      readinessProbe:
+        httpGet:
+          path: {{ .Values.statefulset.templateSpec.readinessProbe.path }}
+          port: {{ .Values.statefulset.templateSpec.readinessProbe.port }}
+      {{- end }}
+      containers:
+        {{- range $index, $data:= .Values.statefulset.containers }}
+        - name: {{ $.Values.statefulset.name }}
+          image: {{ $data.image }}
+          ports:
+          {{- range $index, $data2:= $data.ports }}
+            - containerPort: {{ $data2.containerPort }}
+          {{- end }}
+          resources:
+            limits:
+              cpu: {{ $data.resource.limit.cpu }}
+              memory: {{ $data.resource.limit.ram }}
+            requests:
+              cpu: {{ $data.resource.request.cpu }}
+              memory: {{ $data.resource.request.ram }}
+          {{- if $data.envFrom }}
+          envFrom:
+            {{- toYaml $data.envFrom | nindent 12 }}
+          {{- end }}
+          {{- if $data.volumeMounts }}
+          volumeMounts:
+            {{- range $data.volumeMounts }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      persistentVolumeClaimRetentionPolicy:
+        whenDeleted: {{ .Values.statefulset.templateSpec.persistentVolumeClaimRetentionPolicy.whenDeleted }}
+        whenScaled: {{ .Values.statefulset.templateSpec.persistentVolumeClaimRetentionPolicy.whenScaled }}
+  volumeClaimTemplates:
+  {{- range $index, $data := .Values.statefulset.volumeClaimTemplates }}
+    - metadata:
+        name: {{ $data.name }}
+      spec:
+        accessModes:
+          {{- toYaml $data.accessModes | nindent 10 }}
+        storageClassName: {{ $data.storageClassName }}
+        resources:
+          requests:
+            storage: {{ $data.requestedStorage }}
+  {{- end}}
+{{- end }}

@@ -1,0 +1,68 @@
+statefulset:
+  name: nginx
+  spec:
+    serviceName: "nginx"
+    replicas: 3
+    minReadySeconds: 10
+  
+  #.Values.statefulset.templateSpec
+  templateSpec:
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Delete
+    
+    terminationGracePeriodSeconds: 10
+
+    podManagementPolicy: Ordered
+
+    livenessProbe:
+      path: /healthz
+      port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      failureThreshold: 3
+
+    readinessProbe:
+      path: /ready
+      port: 8080
+
+    podAntiAffinity:
+      - weight: 100
+        matchExpressions:
+          - key: app
+            operator: In
+            values:
+              - nginx-backend
+              - nginx-frontend
+        topologyKey: "kubernetes.io/hostname"
+
+  #.Values.statefulset.containers
+  containers:
+    - image: registry.k8s.io/nginx-slim:0.8
+      ports:
+        - containerPort: 80
+      resource:
+        limit:
+          cpu: 100mi
+          ram: 200m
+        request:
+          cpu: 100mi
+          ram: 200m
+      volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+      envFrom:
+        - configMap: 
+            name: databaseConfig
+            key: host
+        - secret:
+            name: api-credentials
+            key: api-key
+
+ #.Values.statefulset.volumeClaimTemplates
+  volumeClaimTemplates:
+    - name: www
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: "my-storage-class"
+      requestedStorage: 1Gi
