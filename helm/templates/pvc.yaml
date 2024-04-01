@@ -1,0 +1,26 @@
+{{- if .Values.pvc }}
+{{- range $index, $data := .Values.deployment.container }}
+{{- if $data.volume}}
+{{- range $index2, $data2 := $data.volume}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-{{ $data2.name }}-{{ $index }}
+  namespace: {{ $.Values.deployment.namespace }}
+  {{- if $.Values.pvc.annotations }}
+  annotations:
+    {{- range $key, $value := $.Values.pvc.annotations }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $.Values.pvc.access_mode | nindent 6 }}
+  resources:
+    requests:
+      storage: {{ $data2.size }}
+  storageClassName: {{ $.Values.pvc.storage_class_name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

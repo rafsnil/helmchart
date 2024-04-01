@@ -1,0 +1,80 @@
+kube_version: '1.19'
+namespace:
+  name: test-ns-rnd
+  labels:
+    rnd: rakib
+pvc:
+  annotations:
+    pv.kubernetes.io/bind-completed: 'yes'
+    pv.kubernetes.io/bound-by-controller: 'yes'
+    volume.beta.kubernetes.io/storage-provisioner: rancher.io/local-path
+    volume.kubernetes.io/selected-node: kc-saas-dev-2
+    volume.kubernetes.io/storage-provisioner: rancher.io/local-path
+  access_mode:
+  - ReadWriteOnce
+  storage_class_name: local-path
+secret:
+- name: secret-test-ns-rnd
+  values:
+    additionalProp1: test-one
+    additionalProp2: test-two
+configmap:
+- name: test-rnd-configmap
+  map_type: 'no'
+  values:
+    additionalProp1: string1
+    additionalProp2: string2
+deployment:
+  name: test-nginx
+  namespace: default
+  labels:
+    additionalProp1: label1
+    additionalProp2: label2
+    additionalProp3: label3
+  replica:
+    initial_replica: 1
+    min_replica: 1
+    max_replica: 10
+    scale_utilization_cpu: 50
+    scale_utilization_ram: 50
+  strategy:
+    type: RollingUpdate
+    max_surge: 1
+    max_unavailable: 1
+  container:
+  - container_name: nginx-test-helm
+    container_image: nginx:latest
+    image_pull_policy: Always
+    ports:
+    - port: 80
+      protocol: TCP
+    resource:
+      limit:
+        cpu: 200m
+        ram: 400Mi
+      request:
+        cpu: 200m
+        ram: 400Mi
+    configmaps:
+    - test-rnd-configmap
+    secrets:
+    - secret-test-ns-rnd
+    volume:
+    - name: test-pvc
+      mount_path: /
+      claim_name: test-pvc
+      size: 1Gi
+ingress:
+  secret: wild-cert-secret
+  hosts:
+  - host: test-helm-rnd.alpha.beta.klovercloud.io
+    paths:
+    - path: /
+      port: 80
+      path_type: ImplementationSpecific
+      service_name: service-test-nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-passthrough: 'true'

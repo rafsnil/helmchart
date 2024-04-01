@@ -1,0 +1,34 @@
+{{- if .Values.configmap }}
+{{- range .Values.configmap}}
+{{- if eq .map_type "file"  }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.deployment.namespace }}
+  labels:
+    {{- range $key, $value := $.Values.deployment.labels }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+data:
+  {{- range $key, $data := .values }}
+  {{ $key }}: |
+      {{ $data }}
+  {{- end }}
+{{else}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.deployment.namespace }}
+  labels:
+    {{- range $key, $value := $.Values.deployment.labels }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+data:
+  {{- range $key, $data := .values }}
+  {{ $key }}: {{ $data }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

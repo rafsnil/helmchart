@@ -1,0 +1,95 @@
+{{- if .Values.deployment }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- if .Values.deployment.annotations}}
+  annotations:
+    {{- range $key, $value := .Values.deployment.annotations }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+  name: {{ .Values.deployment.name }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+    {{- range $key, $value := .Values.deployment.labels }}
+    {{ $key | quote }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replica.initial_replica }}
+  selector:
+    matchLabels:
+      app: {{ .Values.deployment.name }}
+  {{- if .Values.deployment.strategy }}
+  strategy:
+    type: {{ .Values.deployment.strategy.type }}
+    rollingUpdate:
+      maxSurge: {{ .Values.deployment.strategy.max_surge }}
+      maxUnavailable: {{ .Values.deployment.strategy.max_unavailable }}
+  {{- end }}
+  template:
+    metadata:
+      {{- if .Values.deployment.annotations}}
+      annotations:
+        {{- range $key, $value := .Values.deployment.annotations }}
+        {{ $key | quote }}: {{ $value | quote }}
+        {{- end }}
+      {{- end }}
+      labels:
+        app: {{ .Values.deployment.name }}
+        {{- range $key, $value := .Values.deployment.labels }}
+        {{ $key | quote }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      {{- if .Values.deployment.image_pull_secret }}
+      imagePullSecrets:
+        {{- range $index,$value := .Values.deployment.image_pull_secret }}
+        - name: {{ $value }}
+        {{- end }}
+      {{- end }}
+      containers:
+        {{- range $index, $data := .Values.deployment.container}}
+        - name: {{ $data.container_name }}
+          image: {{ $data.container_image }}
+          imagePullPolicy: {{ $data.image_pull_policy }}
+          ports:
+            {{- range $data.ports }}
+            - containerPort: {{ .port }}
+              protocol: {{ .protocol }}
+            {{- end }}
+          {{- if or ($data.configmaps) ($data.secrets) }}
+          envFrom:
+            {{- range $index,$value := $data.configmaps }}
+            - configMapRef:
+                name: {{ $value }}
+            {{- end }}
+            {{- range $index,$value := $data.secrets }}
+            - secretRef:
+                name: {{ $value }}
+            {{- end }}
+          {{- end }}
+          resources:
+            limits:
+              cpu: {{ $data.resource.limit.cpu }}
+              memory: {{ $data.resource.limit.ram }}
+            requests:
+              cpu: {{ $data.resource.request.cpu }}
+              memory: {{ $data.resource.request.ram }}
+          {{- if $data.volume }}
+          volumeMounts:
+            {{- range $data.volume }}
+            - name: {{ .name }}
+              mountPath: {{ .mount_path }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- range $index, $data := .Values.deployment.container }}
+      {{- if $data.volume }}
+      volumes:
+        {{- range $data.volume }}
+        - name: {{ .name }}
+          persistentVolumeClaim:
+            claimName: {{ .claim_name }}
+        {{- end }}
+      {{- end}}
+      {{- end }}
+{{- end }}
