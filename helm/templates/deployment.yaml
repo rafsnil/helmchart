@@ -1,4 +1,4 @@
-{{- if .Values.deploymentUPDATED_AGAIN_FROM_GIT }}
+{{- if .Values.deployment }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
